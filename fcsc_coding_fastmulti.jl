@@ -80,7 +80,11 @@ function fcsc_coding_fastmulti{T}(data::FastCodingData{T}, optParams::FastCoding
   if vecnorm(z)==0;
     # Initialize z to pure reconstruction solution
     fill!(z_fft, 0);
-    z_subproblem!(z_fft, z_fft, mu_t, z_fft, DtD_fft, Dtx_fft);
+    # Increase from 1e-14 if singular errors still occur.
+    I = 1e-14.*eye(dictSize);
+    for i=1:convLen;
+      z_fft[:, :, i] = ( DtD_fft[:, :, i]+I ) \ Dtx_fft[:, :, i];
+    end
     for j=1:numImgs;
       z_tmp = reshape(squeeze(z_fft[:, j, :], 2).', convH, convW, dictSize);
       z[:, j] = reshape(real(ifft2(z_tmp)), dictSize*convLen, 1);
@@ -98,10 +102,8 @@ function fcsc_coding_fastmulti{T}(data::FastCodingData{T}, optParams::FastCoding
     assert(size(t_fft)==(dictSize, numImgs, convLen), "t_fft does not have the correct dimensions.")
   end
   if update_t;
-    t_subproblem!(t, z, mu_t, lambda_t, beta);
-    for j=1:numImgs;
-      t_fft[:, j, :] = reshape(fft2(reshape(t[:, j], convH, convW, dictSize)), convLen, dictSize).';
-    end
+    copy!(t, z);
+    copy!(t_fft, z_fft);
   end
 
 
